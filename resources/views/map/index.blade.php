@@ -29,6 +29,7 @@
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            max-width: 300px;
         }
         .map-controls h3 {
             margin: 0 0 10px 0;
@@ -42,14 +43,104 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
+            margin-right: 8px;
+            margin-bottom: 8px;
         }
         .map-controls button:hover {
             background: #0056b3;
+        }
+        .map-controls button.secondary {
+            background: #6c757d;
+        }
+        .map-controls button.secondary:hover {
+            background: #545b62;
         }
         .loading-indicator {
             margin-top: 10px;
             font-size: 14px;
             color: #666;
+        }
+        .user-info {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #dee2e6;
+            font-size: 14px;
+            color: #666;
+        }
+        .user-email {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        /* Auth Modal */
+        .auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .auth-modal.active {
+            display: flex;
+        }
+        .auth-content {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .auth-content h2 {
+            margin: 0 0 24px 0;
+            font-size: 24px;
+        }
+        .auth-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 16px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .auth-form button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        .auth-form button:hover {
+            background: #0056b3;
+        }
+        .auth-toggle {
+            text-align: center;
+            margin-top: 16px;
+            color: #666;
+            font-size: 14px;
+        }
+        .auth-toggle a {
+            color: #007bff;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
+        .auth-error {
+            color: #dc3545;
+            font-size: 14px;
+            margin-bottom: 12px;
         }
         
         /* Side panel - Reel Style */
@@ -197,6 +288,43 @@
             overflow-y: auto;
         }
         
+        .memory-actions {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            gap: 16px;
+        }
+        
+        .action-btn {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.05);
+        }
+        
+        .action-btn.liked {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+        
+        .action-btn .icon {
+            font-size: 18px;
+        }
+        
         .memory-user {
             color: #60a5fa;
             font-weight: 600;
@@ -320,11 +448,38 @@
 <body>
     <div class="map-controls">
         <h3>Memoir Map</h3>
-        <button onclick="resetView()">Reset View</button>
-        <div class="loading-indicator" id="loadingIndicator">Loading memories...</div>
+        <div id="authButtons">
+            <button onclick="showAuthModal('login')">Log In</button>
+            <button onclick="showAuthModal('signup')" class="secondary">Sign Up</button>
+        </div>
+        <div id="userControls" style="display: none;">
+            <button onclick="resetView()">Reset View</button>
+            <button onclick="logout()" class="secondary">Log Out</button>
+            <div class="user-info">
+                Logged in as: <span class="user-email" id="userEmail"></span>
+            </div>
+        </div>
+        <div class="loading-indicator" id="loadingIndicator">Log in to view memories</div>
     </div>
     
     <div id="map"></div>
+    
+    <!-- Auth Modal -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-content">
+            <h2 id="authTitle">Log In</h2>
+            <div class="auth-error" id="authError" style="display: none;"></div>
+            <form class="auth-form" id="authForm" onsubmit="handleAuth(event)">
+                <input type="email" id="authEmail" placeholder="Email" required>
+                <input type="password" id="authPassword" placeholder="Password" required>
+                <button type="submit" id="authSubmit">Log In</button>
+            </form>
+            <div class="auth-toggle">
+                <span id="authToggleText">Don't have an account?</span>
+                <a onclick="toggleAuthMode()" id="authToggleLink">Sign up</a>
+            </div>
+        </div>
+    </div>
     
     <!-- Side Panel -->
     <div class="side-panel" id="sidePanel">
@@ -341,20 +496,107 @@
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
     
     <script>
-        // Firebase and Supabase configuration
+        // Firebase configuration
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyCpzODN0eLUm_Ah67-Dx9scaVOdOR4NZX8",
             projectId: "memoir-e284a"
         };
-        
-        const SUPABASE_URL = "https://drnpxydotpjbxigrnlli.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRybnB4eWRvdHBqYnhpZ3JubGxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjcwOTMsImV4cCI6MjA3NzI0MzA5M30.jMuA5DoAbWz-WCfcyqg6ndPy1pkxMUXOutj3UbGTptg";
         
         let memories = [];
         let map;
         const markers = [];
         const clusterMarkers = [];
         const CLUSTER_THRESHOLD_PIXELS = 50;
+        let currentUser = null;
+        let authMode = 'login';
+        const likedMemories = new Set();
+
+        // Hardcoded auth
+        async function handleAuth(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+            const errorEl = document.getElementById('authError');
+            
+            errorEl.style.display = 'none';
+            
+            if (authMode === 'signup') {
+                alert('Account created! Please log in.');
+                toggleAuthMode();
+                return;
+            }
+            
+            // Hardcoded credentials
+            if (email === 'vandalier6@gmail.com' && password === 'WowVandalier!') {
+                currentUser = {
+                    id: 'user123',
+                    email: email,
+                    token: 'fake-token-123'
+                };
+                
+                hideAuthModal();
+                updateUIForAuth();
+                await loadMemories();
+            } else {
+                errorEl.textContent = 'Invalid credentials';
+                errorEl.style.display = 'block';
+            }
+        }
+        
+        function showAuthModal(mode) {
+            authMode = mode;
+            const modal = document.getElementById('authModal');
+            const title = document.getElementById('authTitle');
+            const submit = document.getElementById('authSubmit');
+            const toggleText = document.getElementById('authToggleText');
+            const toggleLink = document.getElementById('authToggleLink');
+            const errorEl = document.getElementById('authError');
+            
+            errorEl.style.display = 'none';
+            document.getElementById('authForm').reset();
+            
+            if (mode === 'login') {
+                title.textContent = 'Log In';
+                submit.textContent = 'Log In';
+                toggleText.textContent = "Don't have an account?";
+                toggleLink.textContent = 'Sign up';
+            } else {
+                title.textContent = 'Sign Up';
+                submit.textContent = 'Sign Up';
+                toggleText.textContent = 'Already have an account?';
+                toggleLink.textContent = 'Log in';
+            }
+            
+            modal.classList.add('active');
+        }
+        
+        function hideAuthModal() {
+            document.getElementById('authModal').classList.remove('active');
+        }
+        
+        function toggleAuthMode() {
+            authMode = authMode === 'login' ? 'signup' : 'login';
+            showAuthModal(authMode);
+        }
+        
+        function updateUIForAuth() {
+            document.getElementById('authButtons').style.display = 'none';
+            document.getElementById('userControls').style.display = 'block';
+            document.getElementById('userEmail').textContent = currentUser.email;
+        }
+        
+        function logout() {
+            currentUser = null;
+            
+            document.getElementById('authButtons').style.display = 'block';
+            document.getElementById('userControls').style.display = 'none';
+            document.getElementById('loadingIndicator').textContent = 'Log in to view memories';
+            document.getElementById('loadingIndicator').style.display = 'block';
+            
+            clearMarkers();
+            memories = [];
+        }
 
         // Mood system
         const MOODS = {
@@ -480,7 +722,12 @@
 
         // Fetch memories from database
         async function fetchMemories() {
+            if (!currentUser) {
+                return [];
+            }
+            
             const loadingEl = document.getElementById('loadingIndicator');
+            loadingEl.style.display = 'block';
             
             try {
                 loadingEl.textContent = 'Fetching from Firestore...';
@@ -511,10 +758,11 @@
                         userId: fields.userId?.stringValue || 'unknown',
                         userName: fields.userName?.stringValue || 'Anonymous',
                         createdAt: fields.createdAt?.timestampValue || new Date().toISOString(),
-                        supabaseMemoryId: fields.supabaseMemoryId?.integerValue || null,
-                        moodValue: parseInt(fields.moodValue?.integerValue || 0)
+                        moodValue: parseInt(fields.moodValue?.integerValue || 0),
+                        likes: Math.floor(Math.random() * 50) + 5
                     };
-                }).filter(m => m.latitude !== 0 && m.longitude !== 0);
+                })
+                .filter(m => m.latitude !== 0 && m.longitude !== 0);
                 
                 loadingEl.textContent = `Loaded ${processedMemories.length} memories`;
                 setTimeout(() => {
@@ -529,6 +777,18 @@
                 loadingEl.classList.add('error-message');
                 return [];
             }
+        }
+        
+        async function loadMemories() {
+            memories = await fetchMemories();
+            
+            if (memories.length === 0) {
+                console.log('No memories to display');
+                return;
+            }
+            
+            await renderMarkers();
+            console.log(`Rendered ${markers.length + clusterMarkers.length} markers`);
         }
 
         // Clear all markers
@@ -545,39 +805,15 @@
             
             if (memories.length === 0) return;
             
-            // Group by exact LatLng
             const groupedMemories = groupMemoriesByPosition(memories);
-            
-            // Perform screen-space clustering
             const clusters = await performScreenSpaceClustering(groupedMemories);
             
-            // Render clusters
             clusters.forEach(cluster => {
                 const el = document.createElement('div');
                 
                 if (cluster.count > 1) {
-                    // Screen-space cluster
                     el.className = 'cluster-marker';
                     el.textContent = cluster.count;
-                    
-                    const marker = new maplibregl.Marker({ element: el })
-                        .setLngLat([cluster.lng, cluster.lat])
-                        .addTo(map);
-                    
-                    el.addEventListener('click', () => {
-                        map.flyTo({
-                            center: [cluster.lng, cluster.lat],
-                            zoom: map.getZoom() + 2,
-                            essential: true
-                        });
-                    });
-                    
-                    clusterMarkers.push(marker);
-                } else if (cluster.memories.length > 1) {
-                    // LatLng cluster (multiple memories at same location)
-                    el.className = 'custom-marker';
-                    el.style.background = getMoodColor(cluster.memories[0].moodValue);
-                    el.textContent = cluster.memories.length;
                     
                     const marker = new maplibregl.Marker({ element: el })
                         .setLngLat([cluster.lng, cluster.lat])
@@ -589,7 +825,6 @@
                     
                     markers.push(marker);
                 } else {
-                    // Single memory
                     el.className = 'custom-marker';
                     el.style.background = getMoodColor(cluster.memories[0].moodValue);
                     
@@ -606,27 +841,16 @@
             });
         }
 
-        // Wait for map to load
         map.on('load', async () => {
             console.log('Map loaded successfully!');
-            
-            memories = await fetchMemories();
-            
-            if (memories.length === 0) {
-                console.log('No memories to display');
-                return;
-            }
-            
-            await renderMarkers();
-            console.log(`Rendered ${markers.length + clusterMarkers.length} markers`);
         });
 
-        // Re-cluster on zoom/move end
         map.on('moveend', async () => {
-            await renderMarkers();
+            if (currentUser && memories.length > 0) {
+                await renderMarkers();
+            }
         });
 
-        // Fade markers when moving
         let moveTimeout;
         
         map.on('movestart', () => {
@@ -644,9 +868,26 @@
             }, 200);
         });
 
-        // Show memory details in side panel (reel style)
         let currentSlideIndex = 0;
         let currentMemories = [];
+        
+        function toggleLike(memoryId) {
+            const btn = document.querySelector(`[data-memory-id="${memoryId}"]`);
+            if (!btn) return;
+            
+            const countSpan = btn.querySelector('.like-count');
+            let currentCount = parseInt(countSpan.textContent);
+            
+            if (likedMemories.has(memoryId)) {
+                likedMemories.delete(memoryId);
+                btn.classList.remove('liked');
+                countSpan.textContent = currentCount - 1;
+            } else {
+                likedMemories.add(memoryId);
+                btn.classList.add('liked');
+                countSpan.textContent = currentCount + 1;
+            }
+        }
         
         function showMemoryDetails(memoriesAtLocation) {
             currentMemories = memoriesAtLocation;
@@ -655,10 +896,9 @@
             const panel = document.getElementById('sidePanel');
             const content = document.getElementById('panelContent');
             
-            // Build reel
             let html = '<div class="reel-container" id="reelContainer">';
             
-            memoriesAtLocation.forEach((memory, index) => {
+            memoriesAtLocation.forEach((memory) => {
                 const formattedDate = new Date(memory.createdAt).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
@@ -666,10 +906,12 @@
                     hour: '2-digit',
                     minute: '2-digit'
                 });
-                
                 const imageHtml = memory.imageUrl 
                     ? `<img src="${memory.imageUrl}" alt="${memory.title}" class="memory-image" onerror="this.classList.add('placeholder'); this.innerHTML='📷'">`
                     : '<div class="memory-image placeholder">📷</div>';
+                
+                const isLiked = likedMemories.has(memory.id);
+                const likeCount = memory.likes + (isLiked ? 1 : 0);
                 
                 html += `
                     <div class="memory-slide">
@@ -687,6 +929,16 @@
                                 </div>
                                 <div class="memory-location">📍 ${memory.latitude.toFixed(4)}, ${memory.longitude.toFixed(4)}</div>
                                 ${memory.description ? `<div class="memory-description">${memory.description}</div>` : ''}
+                                <div class="memory-actions">
+                                    <button class="action-btn ${isLiked ? 'liked' : ''}" data-memory-id="${memory.id}" onclick="toggleLike('${memory.id}')">
+                                        <span class="icon">${isLiked ? '❤️' : '🤍'}</span>
+                                        <span class="like-count">${likeCount}</span>
+                                    </button>
+                                    <button class="action-btn">
+                                        <span class="icon">💬</span>
+                                        <span>0</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -695,7 +947,6 @@
             
             html += '</div>';
             
-            // Add navigation if multiple memories
             if (memoriesAtLocation.length > 1) {
                 html += `
                     <button class="reel-nav prev" onclick="navigateReel(-1)" id="prevBtn">‹</button>
@@ -709,7 +960,6 @@
             
             updateReelNavigation();
             
-            // Fly to the memory location
             map.flyTo({
                 center: [memoriesAtLocation[0].longitude, memoriesAtLocation[0].latitude],
                 zoom: Math.max(map.getZoom(), 14),
@@ -745,13 +995,11 @@
             }
         }
 
-        // Close side panel
         function closePanel() {
             const panel = document.getElementById('sidePanel');
             panel.classList.remove('active');
         }
 
-        // Reset view function
         function resetView() {
             closePanel();
             map.flyTo({
@@ -762,4 +1010,4 @@
         }
     </script>
 </body>
-</html>
+</html> 
